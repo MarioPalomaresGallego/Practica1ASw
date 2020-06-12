@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?fileVersion 4.0.0?><cproject storage_type_id="org.eclipse.cdt.core.XmlProjectDescriptionStorage">
+	<storageModule moduleId="org.eclipse.cdt.core.settings">
+		<cconfiguration id="org.rtems.cdt.config.124215836">
+			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="org.rtems.cdt.config.124215836" moduleId="org.eclipse.cdt.core.settings" name="RTEMS Executable Configuration">
+				<externalSettings/>
+				<extensions>
+					<extension id="org.eclipse.cdt.core.ELF" point="org.eclipse.cdt.core.BinaryParser"/>
+					<extension id="org.eclipse.cdt.core.GASErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GLDErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
+					<extension id="org.eclipse.cdt.core.GCCErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
+				</extensions>
+			</storageModule>
+			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe" description="" id="org.rtems.cdt.config.124215836" name="RTEMS Executable Configuration" optionalBuildProperties="org.eclipse.cdt.docker.launcher.containerbuild.property.selectedvolumes=,org.eclipse.cdt.docker.launcher.containerbuild.property.volumes=" parent="org.rtems.cdt.config" postbuildStep="arm-rtems5-objcopy ${ProjName}.exe -O binary ${ProjName}.bin; gzip -9 -f -c ${ProjName}.bin &gt; ${ProjName}.bin.gz; mkimage -A arm -O linux -T kernel -a 0x200000 -e 0x200000 -n RTEMS -d ${ProjName}.bin.gz kernel.img; mv kernel.img /svr/tftp; rm -f ${ProjName}.*">
+					<folderInfo id="org.rtems.cdt.config.124215836." name="/" resourcePath="">
+						<toolChain id="org.rtems.cdt.config.toolchain.452379282" name="RTEMS Toolchain" superClass="org.rtems.cdt.config.toolchain">
+							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="org.rtems.cdt.target.1481430838" name="RTEMS Target" osList="all" superClass="org.rtems.cdt.target"/>
+							<builder buildPath="${workspace_loc:/Practica1A}/RTEMS Executable Configuration" id="org.rtems.cdt.builder.568678404" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="Gnu Make Builder" superClass="org.rtems.cdt.builder"/>
+							<tool command="/home/mario/development/rtems/compiler/5/bin/arm-rtems5-gcc" id="org.rtems.cdt.compiler.c.313744109" name="RTEMS C Compiler" superClass="org.rtems.cdt.compiler.c">
+								<inputType id="org.rtems.cdt.compiler.input.c.585255293" superClass="org.rtems.cdt.compiler.input.c"/>
+							</tool>
+							<tool id="org.rtems.cdt.compiler.cpp.847100456" name="RTEMS C++ Compiler" superClass="org.rtems.cdt.compiler.cpp"/>
+							<tool command="/home/mario/development/rtems/compiler/5/bin/arm-rtems5-gcc" id="org.rtems.cdt.linker.c.114537808" name="RTEMS Linker" superClass="org.rtems.cdt.linker.c">
+								<inputType id="cdt.managedbuild.tool.gnu.c.linker.input.615099791" superClass="cdt.managedbuild.tool.gnu.c.linker.input">
+									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
+									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
+								</inputType>
+							</tool>
+							<tool id="org.rtems.cdt.assembler.gcc.795126328" name="RTEMS Assembler" superClass="org.rtems.cdt.assembler.gcc">
+								<inputType id="org.rtems.cdt.assembler.gcc.input.38934805" superClass="org.rtems.cdt.assembler.gcc.input"/>
+							</tool>
+							<tool id="org.rtems.cdt.assembler.2124265994" name="RTEMS Bare Assembler" superClass="org.rtems.cdt.assembler">
+								<inputType id="org.rtems.cdt.assembler.input.1569101370" superClass="org.rtems.cdt.assembler.input"/>
+							</tool>
+							<tool id="org.rtems.cdt.archiver.1782429817" name="RTEMS Archiver" superClass="org.rtems.cdt.archiver"/>
+							<tool id="org.rtems.cdt.linker.cpp.1990881612" name="RTEMS C++ Linker" superClass="org.rtems.cdt.linker.cpp"/>
+						</toolChain>
+					</folderInfo>
+				</configuration>
+			</storageModule>
+			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
+		</cconfiguration>
+	</storageModule>
+	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
+		<project id="Practica1A.org.rtems.cdt.projectType.1913701044" name="RTEMS Executable" projectType="org.rtems.cdt.projectType"/>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
+	<storageModule moduleId="refreshScope"/>
+</cproject>

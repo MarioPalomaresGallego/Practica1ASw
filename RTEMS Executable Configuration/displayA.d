@@ -1,0 +1,1 @@
+displayA.o: ../displayA.c
