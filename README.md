@@ -541,8 +541,8 @@ Click Derecho en el Proyecto -> Properties -> C/C++ Build -> Settings
 Estos programas si se quieren depurar desde el principio, o si son especialmente cortos deberán contener un bucle sobre una varaible que nos permite "parar" la ejecución del programa:
 
 ```c
-	int a = 0
-	while(!a);
+int a = 0
+while(!a);
 ```
 	
 De lo contrario perderemos el control sobre el incio del programa o incluso si termina antes de realizr la conexión, esta no podrá llevarse a cabo ya que la RPI se estará reinciando.
@@ -608,10 +608,10 @@ Down Arrow Launch Configuration -> New Launch Configuration -> OpenOCD Debugging
 * Main: Debería autorrellenarse en caso contrario refrescar el proyecto y volver repetir desde el principio
 * Debugger:
   * OpenOCD SetUp:
-    * Executable Path = <Ruta al ejecutable openOCD>
+    * Executable Path = "Ruta al ejecutable openOCD"
     * Config Options = -f interfaces/ft2232.cfg -f board/rpi2.cfg
   * Start GDB session:
-    * Executable Name = <Ruta al ejecutable del GDB de RTEMS> 
+    * Executable Name = "Ruta al ejecutable del GDB de RTEMS"
   * Remote Target:
      * Port = 3333
 * StartUp: Unclick todo menos "Load Symbols" lo dejamos con la opción por defecto
