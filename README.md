@@ -76,7 +76,7 @@ La conexión para el FT2232 para el canal secundario; CN3 (el canal CN2 queda re
 
 Para conectar el adaptador al ordenador necesitaremos un cable USB-microUSB, una vez conectado al para poder acceder al adaptador podemos usar distintos emuladores de terminales (minicom, screen). Nosotros vamos a usar screen ya que es más ligero y sencillo de usar que minicom. Lo primero que debemos hacer es detectar que puerto ha asignado el kernel al adaptador, para ello:
 
-```
+```bash
 dmesg | tail -10
 ```
 
@@ -85,7 +85,9 @@ Deberemos ver un mensaje como el siguiente:
 
 En este caso podemos ver que se le ha asignado el puerto:. Teniendo esto en cuenta para conectarnos a el realizamos:
 
-	screen <puerto> 115200
+```bash
+screen <puerto> 115200
+```
 
 Con el adaptador establecido pasamso a realizar la primera prueba de un ejecutable de RTEMS, para ello una vez tenemos el fichero compilado, lo cargamos en la micro-SD junto con los ficheros de firmware usados en la fase de arranque. Estos ficheros se pueden obtener del [repositorio de la Raspberry Pi](https://github.com/raspberrypi/firmware/tree/master/boot). Realmente en este directorio están los ficheros de firmware para todas las placas diferentes que hay, los que nos interesan son:
 * bootcode.bin
@@ -133,17 +135,21 @@ U-boot necesita unas cabeceras especiales para poder interpretar el fichero ejec
 
 1. Transformar el ejecutable a formato binario. El formato que obtenemos tras la compilación es ELF (Executable Linkable File), se trata de un formato con una serie de metadatos pensados para ser interpretados por el cargador de programas del sistema operativo. Dado que no 
 
+```bash
+<path_toolchain>/arm-rtems5-objcopy <Nombre_Ejecutable>.exe -O binary <Nombre_Ejecutable>.bin
+```
 
-	<path_toolchain>/arm-rtems5-objcopy <Nombre_Ejecutable>.exe -O binary <Nombre_Ejecutable>.bin
-	
 2. Realizamos una compresión de la imágen, esto va a ser extremadamente útil para poder transmitir el archivo de forma más rápida por cualquiera de los métodos que vamos a contar a continuación
- 
-	gzip -9 -f -c <Nombre_Ejecutable>.bin > <Nombre_Ejecutable>.bin.gz
-	
+
+```bash
+gzip -9 -f -c <Nombre_Ejecutable>.bin > <Nombre_Ejecutable>.bin.gz
+```
+
 3. Añadimos unas cabeceras específicas para la lectura por u-boot. Estas contienen información sobre el punto de entrada (en este caso especificamos 0x200000) y el tipo de compresión realizada al archivo. Esto permite a u-boot saber donde cargar el ejecutable y cómo descomprimirlo antes de pasar a ejecutarlo.
 
-	mkimage -A arm -O linux -T kernel -a 0x200000 -e 0x200000 -n RTEMS -d <Nombre_Ejecutable>.bin.gz kernel.img
-
+```bash
+mkimage -A arm -O linux -T kernel -a 0x200000 -e 0x200000 -n RTEMS -d <Nombre_Ejecutable>.bin.gz kernel.img
+```
 
 
 ### Instalación
@@ -169,102 +175,136 @@ En el lado de u-boot debemos escribir los siguientes commandos:
 
 1. Leemos de la micro-SD el fichero .dtb y lo cargamos en la dirección $fdt_addr_r (se trata de una variable de entorno). Es necesario cargar este fichero para que posteriormente se pueda poner en marcha el ejecutable de forma correcta (el código de inicialización de RTEMS lo requiere).
 
-	fatload mmc 0 $fdt_addr_r bcm2710-rpi-2-b.dtb
-	
+```bash
+fatload mmc 0 $fdt_addr_r bcm2710-rpi-2-b.dtb
+```
+
 2.  Abrimos el puerto UART inicializamos la comunicación kermit y esperamos que nos llegue el fihero. U-boot se queda bloqueado esperando que le llegue el fichero. Una vez tenga el fichero lo cargará en la dirección de memoria especificada por la variable de entorno. Esta dirección no es la dirección donde ejecutará el programa, cuando posteriormente ejecutemos el progrma, u-boot leera las cabeceras y copiará el ejecutable en la dirección de memoria especificada en estas cabeceras (0x200000).
 
-	loadb $kernel_addr_r
-	
+```bash
+loadb $kernel_addr_r
+```
+
 3. Esperamos un segundo ya que en las instrucciones 1. y 2. realizadas en el ordenador hay un pequeño delay producido por el cierre y la apertura del puerto serial.
 
-	sleep 1
-	
+```bash
+sleep 1
+```
+
 4. Ejecutamos el programa indicando la dirección en memoria del ejecutable y el .dtb. El segundo parámetro sirve para especificar el fichero initrd. Este es un fichero necesario para arrancar determinados sistemas operativos, se trara de un pequeño sistema de ficheros que se carga en mmeoria durante la fase de arranque. En nuestro caso dado que no es necesario lo marcamos con "-". 
 
-	bootm $kernel_addr_r - $fdt_addr_r
-	
+```bash
+bootm $kernel_addr_r - $fdt_addr_r
+```
+
 En el lado del ordenador:
 
 1. Enviamos el fichero ejecutable (preparado para U-boot). Es importante que este comando se ejecute una vez u-boot se encuentre en el paso 2, de lo contrario la comunicación no se llevará a cabo.
 
-	kermit -i -l /dev/ttyUSB0 -b 115200 -s <fichero ejecutable>
-	
+```bash
+kermit -i -l /dev/ttyUSB0 -b 115200 -s <fichero ejecutable>
+```
+
 2. Abrimos el puerto mediante "screen" para poder ver las impresiones del programa.
 
-	screen <puerto> 115200
-	
+```bash
+screen <puerto> 115200
+```
+
 (Para que le proceso sea lo más rápido posible es recomentable juntar los dos comandos anteriores mediante ";" -> kermit ... ; screen ...)
 
 
-#### Carga por Red
+### Carga por Red
 
 Para poder realizar este método es neceasrio un cable ethernet para conectar a la RPI a la red. Lo primero que debemo hacer es configurar el servidor DHCP en el host.
 
 1. Instalamos los paquetes necesarios
 
-	sudo apt-get install tftp-hpa tftpd-hpa
-	
+```bash
+sudo apt-get install tftp-hpa tftpd-hpa
+```	
+
 2. Editamos el fichero /etc/default/tftpd-hpa, modificamos el valor de la variable TFTP_DIRECTORY
 
-	TFTP_DIRECTORY="/svr/tftp"
-	
+```bash
+TFTP_DIRECTORY="/svr/tftp"
+```
+
 3. Creamos el directorio asignado anteriormente y le asignamos los permisos de nuestro ususario para que no haya problemas al acceder a el
 
-	mkdir /svr/tftp
-	sudo chown -R $(whoami) /srv/tftp
-	
+```bash
+mkdir /svr/tftp
+sudo chown -R $(whoami) /srv/tftp
+```
+
 4. Reiniciamos el servicio TFTP
 
-	sudo service tftpd-hpa restart
-	
+ ```bash
+sudo service tftpd-hpa restart
+```
+
 Con esto ya tenemos preparado el servidor TFTP, todos los ficheros queramos que sean visibles a la comunicación deberán estar presentes en el directorio /svr/tftp. 
 
 Para obtener los ficheros desde u-boot debemos realizar
 
 1. Especificar en la variable de entorno "serverip" la ip de la máquina donde ejecuta el servidor TFTP.
 
-	setenv serverip 192.168.1.216
-	
+```bash
+setenv serverip 192.168.1.216
+```
+
 2. Al igual que antes cargamos el .dtb
 
-	fatload mmc 0 $fdt_addr_r bcm2710-rpi-2-b.dtb
-	
+```bash
+fatload mmc 0 $fdt_addr_r bcm2710-rpi-2-b.dtb
+```
+
 3. Este comando realiza dos acciones. Inicialmente pide una ip al servidor dhcp de la red. Una vez se le ha asignado una pide el fichero especificado al servidor TFTP (identificado por la IP del paso 1.) y carga el ejecutable en la dirección correspondiente. 
 
-	dhcp $kernel_addr_r kernel.img
-	
+```bash
+dhcp $kernel_addr_r kernel.img
+```	
+
 En caso de no tener servidor dhcp en la red local se deberá realizar:
 
-	setenv ipaddr <ip dentro de la red>
-	tftp $kernel_addr_r kernel.img
+```bash
+setenv ipaddr <ip dentro de la red>
+tftp $kernel_addr_r kernel.img
+```
 
 4. Ejecutamos
 
-	bootm $kernel_addr_r - $fdt_addr_r
-	
+```bash
+bootm $kernel_addr_r - $fdt_addr_r
+```
+
 Este método presenta dos ventajas con el "Serial":
 * Te permite tener la RPI separada de la máquina de desarrollo
 * Te permite abrir el puerto serie para ver la consola desde el primer momento.
 
-#### Automatización U-boot
+### Automatización U-boot
 
 Como se puede ver ambos métodos anteriores suponen introducir en u-boot 4 comandos diferentes cosa que hace el tiempo de despliegue bastante largo. Para solucionarlo, u-boot te ofrece la posibilidad de crear un script el cual se ejecutará automaticamente una vez inicie u-boot. Este script deberá llamarse "boot.scr". Para generarlo simplemente:
 
-	nano boot.cmd
-	//Añædir los comandos vistos anteriormente según el método de carga que se desee
-	mkimage -C none -A arm -T script -d boot.cmd boot.scr
-	
+```bash
+nano boot.cmd
+//Añædir los comandos vistos anteriormente según el método de carga que se desee
+mkimage -C none -A arm -T script -d boot.cmd boot.scr
+```
+
 Una vez se tiene el fichero "boot.scr" este simplemente se carga en la micro-SD junto con el resto de archivos. Al arrancar deberíamos ver como u-boot no presenta la shell sino que ejecuta directamente el contenido de este script.
 
 Realmente si nos fijamos no se ha eliminado los 2 segundos de delay que u-boot te deja para cancelar el auto-boot. Si queremos quitarnos estos 2 segundos debemos entrar en el modo Shell y ecribir lo siguiente:
 
-	setenv bootdelay=0
-	saveenv
+```bash
+setenv bootdelay=0
+saveenv
+```
 	
 Esto modifica el valor de la varaible de entorno que establece el tiempo de delay y hará el cambio persistente. Si inspeccionamos la micro-SD tras realizar una ejecución con estos parámetros veremos que se ha generado un fichero uEnv.txt con todas las variables de entorno, todas ellas con el valor por defecto excepto la que acabamos de cambiar. En caso de que queramos volver a usar la shell debemos buscar esta variable en el fichero y establecerle un valor distinto de 0.
 
 
-#### Eclipse
+### Eclipse
 
 Todo el desarrollo que hemos explicado (Preparación del ejecutable, carga remota) se ha integrado dentro de Eclipse para que el desarrollo sea más cómodo, a conitnuación explicamos las configuraciones necesarias a realizar para la integración:
 
@@ -274,8 +314,10 @@ Click Derecho <Proyecto> -> Propiedades -> C/C++ build -> Settings -> Build Step
 	
 En ese cuadro añædimos todos los comandos especificados en "Preparación Ejecutable" separados por ";" y además añædimos el siguiente:
 
-	mv kernel.img /svr/tftp; rm -f ${ProjName}.*
-	
+```bash
+mv kernel.img /svr/tftp; rm -f ${ProjName}.*
+```
+
 Que dejará el ejecutable preparado en el directorio del servidor TFTP listo para ser solicitado.Con esto ya podríamos desde Eclipse realizar el despliegue de un ejecutable por TFTP.
 
 Para poder además realizar la carga serial, debemos realizar un paso más. Para ello hacemos uso de las "External Tools", por defecto instaladas en Eclipse. Esta funcionalidad de permite ejecutar programas que existen fuera del workspace de Eclipse. De esta manera lo que vamos a realizar es añædir un External Tool que ejecute los dos comandos explicados en "Carga Serial". Para ello:
@@ -314,8 +356,10 @@ La carga remota sin duda nos hace el proceso de pruebas sobre el hardware mucho 
 
 Por un lado necesitamos instalar el simulados; QEMU. Para ello podemos descargarnos el código fuente de github y compilarlo o podemos obtener directamente los binarios de apt. Dado que los binarios parecen estar up-to-date tomamos esa opción. QEMU es un software que permite emular distintas arquitecturas, dado que la RPI se trata de una arquitectura ARM, instalamos únicamente el binario para esa arquitectura.
 
-	sudo apt-get install qemu-system-arm
-	
+```bash
+sudo apt-get install qemu-system-arm
+```
+
 Por otro lado para poder integrar el uso del simulador dentro de Eclipse vamos a necesitar hacer uso del paquete GNU/MCU Eclipse. Este provee facilidades para el desarrollo en sistemas empotrados. 
 
 Help -> Eclipse MarketPlace -> Search "GNU/MCU Eclipse" -> Install
@@ -326,8 +370,10 @@ QEMU te ofrece la posibilidad de simular los programas, pero además puedes depu
 
 Actualmente la simulación "normal" no puede usarse con los ejecutables de RTEMS. El comando a utilizar es:
 
-	qemu-system-arm -M raspi2 -m 1G -kernel <Ejecutable> -serial mon:stdio -nographic -dtb <fichero.dtb>
-	
+```bash
+qemu-system-arm -M raspi2 -m 1G -kernel <Ejecutable> -serial mon:stdio -nographic -dtb <fichero.dtb>
+```
+
  * -M: Tipo de placa a simular
  * -m: Tamaño de la memoria RAM
  * -kernel: Fichero ejecutable que debe cargarse en memoria
@@ -338,24 +384,30 @@ La razón de que no funcione se debe a que los ejecutables de RTEMS dado que inc
 
 Por suerte este problema se puede solventar mediante la simulación con depuración. El comando es pŕacticamente igual solo añade -s -S lo que le indica que tras inicializar el simulador debe parar la ejecución y esperar la conexión de un cliente GDB en el puerto 1234.
 
-	qemu-system-arm -M raspi2 -m 1G -kernel <Ejecutable> -serial mon:stdio -nographic -s -S
+```bash
+qemu-system-arm -M raspi2 -m 1G -kernel <Ejecutable> -serial mon:stdio -nographic -s -S
+```
 
 Una vez se ha lanzado QEMU podemos conectarnos con GDB de la siguiente forma:
 
-	<ruta>/arm-rtems5-gdb <Ejecutable>
-	gdb>tar remote:1234
-	gdb>load
-	gdb>restore <ruta>/fichero.dtb binary 0x2ef00000
-	gdb>set $r2=0x2ef00000
-	gdb>set scheduler-locking on
-	gdb>continue
+```bash
+<ruta>/arm-rtems5-gdb <Ejecutable>
+gdb>tar remote:1234
+gdb>load
+gdb>restore <ruta>/fichero.dtb binary 0x2ef00000
+gdb>set $r2=0x2ef00000
+gdb>set scheduler-locking on
+gdb>continue
+```
 	
 Como veis lo que estamos haciendo es colocar manualmente el fichero .dtb en memoria. Para no extendernos demasiado podeis leer [aqui] (https://sourceware.org/gdb/current/onlinedocs/gdb/All_002dStop-Mode.html) para saber más sobre la opción "set scheduler-locking on".
 
 Todos estos comandos pueden incluirse en un fichero .gdb para que GDB lo ejecute automáticamente.
 
-	arm-rtems5-gdb <Ejecutable> -x <nombre>.gdb
-	
+```bash
+arm-rtems5-gdb <Ejecutable> -x <nombre>.gdb
+```
+
 Con esta configuración podemos depurar cualquier tipo de programa que no haga uso del timer. La razón se debe a que el timer que implemente la BSP es distinto que el timer que QEMU simula.
 
 ### Eclipse
@@ -364,7 +416,7 @@ El Plug-in GNU/MCU Eclipse te provee de una herramienta espcifica para depurar p
 
 La herramienta del Plug-In que si que podemos aprovechar es la que te permite configurar el GDB de forma aislada. De esta manera lo que hacemos es lanzar el simulador mediante un "External Tool" y el GDB mediente el Plug-In. A continuación mostramos como realizar la configuración de cada uno de ellos.
 
-QEMU (External Tool): Down Arrow Simbolo External Tool (Al lado del de "Run")  -> External Tool Configuration -> New External Tool (Simbolo hoja)
+**QEMU** (External Tool): Down Arrow Simbolo External Tool (Al lado del de "Run")  -> External Tool Configuration -> New External Tool (Simbolo hoja)
 
 * Name: El que quieras
 * Main: Rellenamos los valores:
@@ -377,7 +429,7 @@ QEMU (External Tool): Down Arrow Simbolo External Tool (Al lado del de "Run")  -
 * Environment: Nada
 * Common: Nada
 
-GDB (GNU/MCU Plug-in): Down Arrow Launch Configuration -> New Launch Configuration -> GDB Hardware Debugging
+**GDB** (GNU/MCU Plug-in): Down Arrow Launch Configuration -> New Launch Configuration -> GDB Hardware Debugging
 
 * Name: El que quieras
 * Main: Debería autorrellenarse en caso contrario refrescar el proyecto y volver repetir desde el principio
@@ -388,21 +440,19 @@ GDB (GNU/MCU Plug-in): Down Arrow Launch Configuration -> New Launch Configurati
 * StartUp
   * Unclick "Reset And Delay"
   * Initialización Commands [Cuadro] añædir
- 
-	restore /home/mario/Downloads/bcm2709-rpi-2-b.dtb binary 0x2ef00000
-	set $r2 = 0x2ef00000
-	set scheduler-locking on
-  
+```
+restore /home/mario/Downloads/bcm2709-rpi-2-b.dtb binary 0x2ef00000
+set $r2 = 0x2ef00000
+set scheduler-locking on
+```
 * Source: Nada
 * Common: Nada
 
 Hasta aqui hemos creado dos configuraciones de ejecución independientes, por lo que tendremos que manualmente lanzar una y después la otra. Para que ambas se lancen automáticamente debemos crear un "Launch Group" (instalado por defecto). Esta herramienta nos permite crear configuraciones donde especifiquemos el orden de ejecución de distintos programas. Para configurarla:
 
 Down Arrow "Run" -> Run Configuracions -> Launch Group -> New Launch Group. Ponerle el nombre que quieras
-
-Add -> Program -> "Nombre que le hayas dado" -> Post Launch Action = Delay = 2 -> OK
-
-Add -> GDB Hardware Debugging -> "Nombre que le hayas dado" -> Launch Mode = Debug -> OK
+&emsp;Add -> Program -> "Nombre que le hayas dado" -> Post Launch Action = Delay = 2 -> OK
+&emsp;Add -> GDB Hardware Debugging -> "Nombre que le hayas dado" -> Launch Mode = Debug -> OK
 
 Una vez tengamos esto ya podemos ejecutar especificancho esta opción como tipo de ejecución y se lanza una consola para QEMU y se cambia la perspectiva de Eclipse para Debueo. Deberemos ver como abre el fichero Start.s y nos muestra la linea donde QEMU ha parado su ejecución esperando al cliente GDB. Le damos a continue y si hemos establecido BP veremos como para en ellos.
 
@@ -432,7 +482,9 @@ La RPI tiene una cabecera con 40 pines los cuales se pueden configurar de distin
 
 La mejor opción que tenemos para activarlos es usar una opción del fichero "config.txt"
 
-	enable_jtag_gpio=1
+```
+enable_jtag_gpio=1
+```
 	
 Esto utiliza la configuración ALT4. De todas esas señæles la única que no usamos es RTCK ya que el adaptador que usamos no tiene la señal corresponidente para sopotar la funcionalidad asociada a ese pin (frecuentacia de reloj adaptativa, útil cuando el programa a debugear porne a la CPU en espera). La señal TRST tampoco la contiene explicitamente pero dado que su funcionalidad es simple, podremos configurar un pin normal para que haga ese papel. Teniendo esto en cuenta la conexión entre la RPI y el FT2232 es la siguiente:
 
@@ -464,13 +516,15 @@ Para poder instalar OpenOCD de forma correcta es necesario tener los siguientes 
 
 Para instalar 
 
-	git clone git://repo.or.cz/openocd.git
-	cd openocd.git
-	./bootstrap
-	cd .. && mkdir build && cd build
-	../openocd.git/configure --enable-ftdi  --prefix=<ruta donde realzar la instalación una vez compilado>
-	make
-	make install
+```bash
+git clone git://repo.or.cz/openocd.git
+cd openocd.git
+./bootstrap
+cd .. && mkdir build && cd build
+../openocd.git/configure --enable-ftdi  --prefix=<ruta donde realzar la instalación una vez compilado>
+make
+make install
+```
 	
 Una vez finalizado en el directorio especificado en "prefix" debemos tener una carpeta /bin con el ejecutable "openocd".
 
@@ -481,15 +535,15 @@ Para que los programas se puedan depurar de forma correcta es necesario que en e
 Desde Eclipse la optimización de los ejecutables está activada por defecto, para desactivarla.
 
 Click Derecho en el Proyecto -> Properties -> C/C++ Build -> Settings 
-
--> RTEMS C Compiler -> Optimization -> Optimization Level = -O0
-
--> RTEMS C Assembler -> Optimization -> Optimization Level = -O0
+&emsp;-> RTEMS C Compiler -> Optimization -> Optimization Level = -O0
+&emsp;-> RTEMS C Assembler -> Optimization -> Optimization Level = -O0
 
 Estos programas si se quieren depurar desde el principio, o si son especialmente cortos deberán contener un bucle sobre una varaible que nos permite "parar" la ejecución del programa:
 
+```c
 	int a = 0
 	while(!a);
+```
 	
 De lo contrario perderemos el control sobre el incio del programa o incluso si termina antes de realizr la conexión, esta no podrá llevarse a cabo ya que la RPI se estará reinciando.
 
@@ -535,9 +589,11 @@ Lo que ha hecho openocd es:
 
 Para depurar el programa debemos ejecutar:
 
-	<ruta>/arm-rtems5-gdb <Ejecutable>
-	gdb>tar remote:3333
-	
+```bash
+<ruta>/arm-rtems5-gdb <Ejecutable>
+gdb>tar remote:3333
+```
+
 Si todo va bien debemos ver en la consola de GDB un mensaje que nos imprime la dirección de memoria donde se ha parado la ejecución, y a su vez la línea de código con la que corresponde. Esta debería corresponderse con el bucle definido al principio del programa. 
 
 A partir de aqui el funcioncionamiento es el que conocemos con GDB con la diferencia de que, por porblemas de invaliación de caché, solo podemos usar Hardware Breakpoints.
