@@ -337,7 +337,7 @@ Nos aparece un cuadro con distintas pestañas, esto es lo que debemos realizar e
 * Environment: Nada
 * Common: Nada
 
-Como podemos ver en vez de ejecutar los comandos que hemos dicho estamos primeramente ejecutando una terminal que posteriormente ejecuta essos comandos. Es necesario realizarlo de esta manera por dos razones:
+Como podemos ver en vez de ejecutar los comandos que hemos dicho estamos primeramente ejecutando una terminal que posteriormente ejecuta esos comandos. Es necesario realizarlo de esta manera por dos razones:
 * "Kermit" no dirige a la salida estandar sus mensajes de impresión por lo que en la consla de Eclipse no podremos ver nada.
 * El comando "Screen" necesita ejecutar sobre una terminar de lo contrario da error.
 
@@ -346,7 +346,7 @@ Lo bueno de esta metodoloǵia es que la terminal que se crea, una vez salimos de
 De esta manera el funcionamiento es el siguiente:
 
 * Carga por Red: Compilamos el fichero, abrimos una terminal desde Eclipse y encendemos la RPI.
-* Carga serial: Encendemos la RPI y ejecutamos con la configuración de External Tool Creada
+* Carga serial: Encendemos la RPI y ejecutamos con la configuración de External Tool creada.
 
 ## Simulación - QEMU
 
@@ -400,7 +400,7 @@ gdb>set scheduler-locking on
 gdb>continue
 ```
 	
-Como veis lo que estamos haciendo es colocar manualmente el fichero .dtb en memoria. Para no extendernos demasiado podeis leer [aqui] (https://sourceware.org/gdb/current/onlinedocs/gdb/All_002dStop-Mode.html) para saber más sobre la opción "set scheduler-locking on".
+Como veis lo que estamos haciendo es colocar manualmente el fichero .dtb en memoria. Para no extendernos demasiado podeis leer [aqui](https://sourceware.org/gdb/current/onlinedocs/gdb/All_002dStop-Mode.html) para saber más sobre la opción "set scheduler-locking on".
 
 Todos estos comandos pueden incluirse en un fichero .gdb para que GDB lo ejecute automáticamente.
 
@@ -451,10 +451,17 @@ set scheduler-locking on
 Hasta aqui hemos creado dos configuraciones de ejecución independientes, por lo que tendremos que manualmente lanzar una y después la otra. Para que ambas se lancen automáticamente debemos crear un "Launch Group" (instalado por defecto). Esta herramienta nos permite crear configuraciones donde especifiquemos el orden de ejecución de distintos programas. Para configurarla:
 
 Down Arrow "Run" -> Run Configuracions -> Launch Group -> New Launch Group. Ponerle el nombre que quieras
-&emsp;Add -> Program -> "Nombre que le hayas dado" -> Post Launch Action = Delay = 2 -> OK
-&emsp;Add -> GDB Hardware Debugging -> "Nombre que le hayas dado" -> Launch Mode = Debug -> OK
 
-Una vez tengamos esto ya podemos ejecutar especificancho esta opción como tipo de ejecución y se lanza una consola para QEMU y se cambia la perspectiva de Eclipse para Debueo. Deberemos ver como abre el fichero Start.s y nos muestra la linea donde QEMU ha parado su ejecución esperando al cliente GDB. Le damos a continue y si hemos establecido BP veremos como para en ellos.
+&emsp;Add -> Program -> "Nombre configuración qemu" -> Post Launch Action = Delay = 2 -> OK
+
+&emsp;Add -> GDB Hardware Debugging -> "Nombre configuración GDB" -> Launch Mode = Debug -> OK
+
+Una vez tengamos esto ya podemos ejecutar de dos formas distitnas
+
+* Simbolo "Run": Down Arrow "Run" -> Nombre asinado al "Launch Group"
+* Launch Bar: Escoger en el segundo cuadro el nombre del "Launch Group" asignado y verificar que el tipo de ejecución (primer cuadro) es "Run".
+
+Al ejecutar se lanza una consola para QEMU y se cambia la perspectiva de Eclipse para Debueo. Deberemos ver como abre el fichero Start.s y nos muestra la linea donde QEMU ha parado su ejecución esperando al cliente GDB. Le damos a continue y si hemos establecido BP veremos como para en ellos.
 
 
 ## Depuración remota - OpenOCD
@@ -535,7 +542,9 @@ Para que los programas se puedan depurar de forma correcta es necesario que en e
 Desde Eclipse la optimización de los ejecutables está activada por defecto, para desactivarla.
 
 Click Derecho en el Proyecto -> Properties -> C/C++ Build -> Settings 
+
 &emsp;-> RTEMS C Compiler -> Optimization -> Optimization Level = -O0
+
 &emsp;-> RTEMS C Assembler -> Optimization -> Optimization Level = -O0
 
 Estos programas si se quieren depurar desde el principio, o si son especialmente cortos deberán contener un bucle sobre una varaible que nos permite "parar" la ejecución del programa:
@@ -613,8 +622,23 @@ Down Arrow Launch Configuration -> New Launch Configuration -> OpenOCD Debugging
   * Start GDB session:
     * Executable Name = "Ruta al ejecutable del GDB de RTEMS"
   * Remote Target:
-     * Port = 3333
+    * Port = 3333
 * StartUp: Unclick todo menos "Load Symbols" lo dejamos con la opción por defecto
 * Source: Nada
 * Common: Nada
 * SVD: Nada
+
+Si queremos queremos que le programa se cargue por el método serial comentado, y que posteriormente este comience la sesión de debugeo todo ello bajo la misma configuración podemos realizar un "Launch Group" de una forma similar a la que hicimos con QEMU:
+
+Down Arrow "Run" -> Run Configuracions -> Launch Group -> New Launch Group. Ponerle el nombre que quieras
+
+&emsp;Add -> Program -> "Nombre configuración carga serial" -> Post Launch Action = Wait Until Terminated -> OK
+
+&emsp;Add -> OpenOCD Debugging -> "Nombre configuración OpenOCD" -> Launch Mode = Debug -> OK
+
+Una vez tengamos esto ya podemos ejecutar de dos formas distitnas
+
+* Simbolo "Run": Down Arrow "Run" -> Nombre asinado al "Launch Group"
+* Launch Bar: Escoger en el segundo cuadro el nombre del "Launch Group" asignado y verificar que el tipo de ejecución (primer cuadro) es "Run".
+
+Al ejecutar primeramente se lanzará la terminar que nos muestre el estado de carga y posteriormente la consola. Posteriormente Eclipse cambiará para mostrarnos la perspectiva de depuración.
