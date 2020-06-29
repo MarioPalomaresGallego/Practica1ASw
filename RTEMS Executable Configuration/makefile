@@ -28,24 +28,24 @@ endif
 # Add inputs and outputs from these tool invocations to the build variables 
 
 # All Target
-all: Practica1A.exe
+all: Practica1ASw.exe
 
 # Tool invocations
-Practica1A.exe: $(OBJS) $(USER_OBJS)
+Practica1ASw.exe: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: RTEMS Linker'
-	/home/mario/development/rtems/compiler/5/bin/arm-rtems5-gcc -B/home/mario/development/rtems/bsps/5/arm-rtems5/raspberrypi2/lib/ -specs bsp_specs -qrtems -ffunction-sections -fdata-sections -march=armv7-a -mthumb -mfpu=neon -mfloat-abi=hard -mtune=cortex-a7 -Wl,--gc-sections -o "Practica1A.exe" $(OBJS) $(USER_OBJS) $(LIBS)
+	/home/mario/development/rtems/compiler/5/bin/arm-rtems5-gcc -B/home/mario/development/rtems/bsps/5/arm-rtems5/raspberrypi2/lib/ -specs bsp_specs -qrtems -ffunction-sections -fdata-sections -march=armv7-a -mthumb -mfpu=neon -mfloat-abi=hard -mtune=cortex-a7 -Wl,--gc-sections -o "Practica1ASw.exe" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 	$(MAKE) --no-print-directory post-build
 
 # Other Targets
 clean:
-	-$(RM) $(EXECUTABLES)$(OBJS)$(ASM_DEPS)$(S_UPPER_DEPS)$(C_DEPS) Practica1A.exe
+	-$(RM) $(EXECUTABLES)$(OBJS)$(ASM_DEPS)$(S_UPPER_DEPS)$(C_DEPS) Practica1ASw.exe
 	-@echo ' '
 
 post-build:
-	-arm-rtems5-objcopy Practica1A.exe -O binary Practica1A.bin; gzip -9 -f -c Practica1A.bin > Practica1A.bin.gz; mkimage -A arm -O linux -T kernel -a 0x200000 -e 0x200000 -n RTEMS -d Practica1A.bin.gz kernel.img; mv kernel.img /svr/tftp; rm -f Practica1A.*
+	-arm-rtems5-objcopy Practica1ASw.exe -O binary Practica1ASw.bin; gzip -9 -f -c Practica1ASw.bin > Practica1ASw.bin.gz; mkimage -A arm -O linux -T kernel -a 0x200000 -e 0x200000 -n RTEMS -d Practica1ASw.bin.gz kernel.img; mv kernel.img /svr/tftp
 	-@echo ' '
 
 .PHONY: all clean dependents post-build

@@ -5,6 +5,8 @@
  *      Author: mario
  */
 
+#define SIMULATOR
+
 /********************
  *  INCLUDES
  *******************/
@@ -15,11 +17,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "displayA.h"
 #include <bsp.h>
 #include <bsp/i2c.h>
 #include <fcntl.h>
 
+#include "displayA.h"
+#include "myTimer.h"
 
 /********************
  *  Constants
@@ -55,11 +58,10 @@ int task_speed()
     // request speed
 	strcpy(request,"SPD: REQ\n");
 
-	//uncomment to use the simulator
-	//simulator(request, answer);
+#ifdef SIMULATOR
+	simulator(request, answer);
 
-	// uncoment to access serial module
-
+#else
 	if(write(file,request,MSG_LEN)<MSG_LEN){
 	  	printf("ERROR: Request SPD\n");
 	  	pthread_exit(NULL);
@@ -69,6 +71,7 @@ int task_speed()
 	  	printf("ERROR: Answer SPD\n");
 	  	pthread_exit(NULL);
 	}
+#endif
 
 	// display speed
 	if (1 == sscanf (answer,"SPD:%f\n",&speed)){
@@ -101,9 +104,10 @@ int task_slope()
 	// request slope
 	strcpy(request,"SLP: REQ\n");
 
-	//uncomment to use the simulator
-	//simulator(request, answer);
+#ifdef SIMULATOR
+	simulator(request, answer);
 
+#else
 	// uncoment to access serial module
 	if(write(file,request,MSG_LEN)<MSG_LEN){
 	  	printf("ERROR: Request SPD\n");
@@ -114,6 +118,7 @@ int task_slope()
 	  	printf("ERROR: Answer SPD\n");
 	  	pthread_exit(NULL);
 	}
+#endif
 
 	// display slope
 	if (0 == strcmp(answer,"SLP:DOWN\n")) {
@@ -158,12 +163,11 @@ int task_gas()
 		strcpy(request,"GAS: SET\n");
 		state = 1;
 	}
-	//uncomment to use the simulator
-	//simulator(request, answer);
 
+#ifdef SIMULATOR
+	simulator(request, answer);
 
-
-	// uncoment to access serial module
+#else
 	if(write(file,request,MSG_LEN)<MSG_LEN){
 	  	printf("ERROR: Request SPD\n");
 	  	pthread_exit(NULL);
@@ -173,6 +177,7 @@ int task_gas()
 	  	printf("ERROR: Answer SPD\n");
 	  	pthread_exit(NULL);
 	}
+#endif
 
 
 	// display gas
@@ -212,9 +217,11 @@ int task_brake()
 		strcpy(request,"BRK: SET\n");
 		state = 1;
 	}
-	//uncomment to use the simulator
-	//simulator(request, answer);
 
+#ifdef SIMULATOR
+	simulator(request, answer);
+
+#else
 	// uncoment to access serial module
 	if(write(file,request,MSG_LEN)<MSG_LEN){
 	  	printf("ERROR: Request SPD\n");
@@ -225,6 +232,7 @@ int task_brake()
 	  	printf("ERROR: Answer SPD\n");
 	  	pthread_exit(NULL);
 	}
+#endif
 
 	// display brake
 	if (0 == strcmp(answer,"BRK:  OK\n")){
@@ -255,7 +263,11 @@ int task_mixer()
 	memset(answer,'\0',10);
 
 	struct timespec mixer2;
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME,&mixer2);
+#else
+	myGetTime(&mixer2);
+#endif
 	int diff = mixer2.tv_sec - mixer.tv_sec;
 
 	// request mixer
@@ -266,14 +278,20 @@ int task_mixer()
 		} else if (state_mixer == 1){
 			strcpy(request,"MIX: SET\n");
 		}
+#ifndef SIMULATOR
 		clock_gettime(CLOCK_REALTIME, &mixer);
+#else
+		myGetTime(&mixer);
+#endif
 	} else {
 		return 0;
 	}
 
-	//uncomment to use the simulator
-	//simulator(request, answer);
 
+#ifdef SIMULATOR
+	simulator(request, answer);
+
+#else
 	// uncoment to access serial module
 	if(write(file,request,MSG_LEN)<MSG_LEN){
 	  	printf("ERROR: Request SPD\n");
@@ -284,6 +302,7 @@ int task_mixer()
 	  	printf("ERROR: Answer SPD\n");
 	  	pthread_exit(NULL);
 	}
+#endif
 
 	// display mixer
 	if (0 == strcmp(answer,"MIX:  OK\n")){
@@ -300,15 +319,41 @@ int task_mixer()
 /********************
  *  Function: controller
  *******************/
+void timespec_diff(struct timespec *start, struct timespec *stop, struct timespec *result)
+{
+    if ((stop->tv_nsec - start->tv_nsec) < 0) {
+        result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+        result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+    } else {
+        result->tv_sec = stop->tv_sec - start->tv_sec;
+        result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+    }
+
+    return;
+}
+
 void *controller(void *arg)
 {
 	//int sc = 0;
 	struct timespec end, begin, diff;
+	struct timespec tcs;
+	tcs.tv_sec=10;
+	tcs.tv_nsec=0;
+
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &mixer);
+#else
+	myGetTime(&mixer);
+#endif
+
+#ifndef SIMULATOR
+    	clock_gettime(CLOCK_REALTIME, &begin);
+#else
+    	myGetTime(&begin);
+#endif
 
     // Endless loop
     while(1) {
-    	clock_gettime(CLOCK_REALTIME, &begin);
 
     	task_speed();
 		task_slope();
@@ -317,14 +362,22 @@ void *controller(void *arg)
 		task_mixer();
 
 		//sc = (sc + 1) % 10;
+#ifndef SIMULATOR
 		clock_gettime(CLOCK_REALTIME, &end);
-		diff.tv_sec = 10 - (end.tv_sec - begin.tv_sec);
-		diff.tv_nsec = end.tv_nsec - begin.tv_nsec;
+#else
+		myGetTime(&end);
+#endif
+		timespec_diff(&begin,&end,&diff);
+		timespec_diff(&diff,&tcs,&diff);
 
 		if (diff.tv_sec < 0) {
 			pthread_exit(NULL);
 		} else {
+#ifndef SIMULATOR
 			clock_nanosleep(CLOCK_REALTIME,0,&diff,NULL);
+#else
+			mySleep(diff);
+#endif
 		}
 		begin.tv_sec += 10;
     }
@@ -333,10 +386,12 @@ void *controller(void *arg)
 /********************
  *  Function: main
  *******************/
+pthread_t display_Thread;
+pthread_t controller_Thread;
+
 rtems_task Init(
 		rtems_task_argument ignored
 ){
-    pthread_t thread_ctrl;
 	sigset_t alarm_sig;
 	int i;
 
@@ -354,30 +409,34 @@ rtems_task Init(
     // init display
 	displayInit(SIGRTMAX);
 
+#ifndef SIMULATOR
 	// Inicializamos el driver para comunicarnos via I2C con el arduino
 
 	 /* Registramos el bus. Esta llamada internamente inicializa los pines necesarios para la comunicación
 	  * y registra el dispositivo bajo /dev/i2c
 	  */
-
 	rpi_i2c_init();
 	rpi_i2c_register_bus("/dev/i2c", 10000);
 
-	 // Abrimos el fichero y guardamos el descriptor en una variable global
-	 if((file = open("/dev/i2c",O_RDWR))<0){
+	// Abrimos el fichero y guardamos el descriptor en una variable global
+	if((file = open("/dev/i2c",O_RDWR))<0){
 		printf("ERROR AL ABRIR EL FICHERO");
-	 }
+		exit(-1);
+	}
 
-	 // Establecemos la dirección del esclavo con el que nos vamos a comunicar
-	 if(ioctl(file,I2C_SLAVE,6)<0){
+	// Establecemos la dirección del esclavo con el que nos vamos a comunicar
+	if(ioctl(file,I2C_SLAVE,6)<0){
 		printf("ERROR IOCTL\n");
 		exit(-1);
-	 }
+	}
+#else
+	setupTimers();
+#endif
 
 
     /* Create first thread */
-    pthread_create(&thread_ctrl, NULL, controller, NULL);
-    pthread_join (thread_ctrl, NULL);
+    pthread_create(&controller_Thread, NULL, controller, NULL);
+    pthread_join (controller_Thread, NULL);
     exit(0);
 }
 

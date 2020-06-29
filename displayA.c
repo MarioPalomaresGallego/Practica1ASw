@@ -16,9 +16,12 @@
 #include <time.h>
 #include <signal.h>
 #include <pthread.h>
+#include "myTimer.h"
 //#include <vxsimHostArchLib.h>
 /*#include <misc/error_checks.h>
 #include <drivers/text_console.h>*/
+
+#define SIMULATOR
 
 
 /**********************************************************
@@ -214,8 +217,12 @@ double getClock()
 {
     struct timespec tp;
     double reloj;
-
+#ifndef SIMULATOR
     clock_gettime (CLOCK_REALTIME, &tp);
+#else
+    myGetTime(&tp);
+#endif
+
     reloj = ((double)tp.tv_sec) +
 	    ((double)tp.tv_nsec) / ((double)NS_PER_S);
     //printf ("%d:%d",tp.tv_sec,tp.tv_nsec);
@@ -289,9 +296,18 @@ double retraso ()
     int ret = 0;
 
     if (0 == init) {
+#ifndef SIMULATOR
 		clock_gettime(CLOCK_REALTIME, &initClock);
+#else
+		myGetTime(&initClock);
+#endif
     }
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &actualClock);
+#else
+	myGetTime(&actualClock);
+#endif
+
 	diffTime(actualClock,initClock, &diffClock);
     lapso = diffClock.tv_sec;
     actualCount = lapso / TIME_BW_ERRORS;
@@ -511,7 +527,11 @@ int crearInferior(struct control_data_backup_t data, char inferior[PANTALLA_SIZE
     struct timespec timeTemp;
 	int auxDistance;
 
+#ifndef SIMULATOR
     clock_gettime(CLOCK_REALTIME, &timeAux);
+#else
+    myGetTime(&timeAux);
+#endif
 
     switch (data.plain_up_down) {
         case 1:
@@ -838,7 +858,11 @@ int initDisplay(struct control_data_backup_t *data)
     data->light = 0;
     data->isDark = 0;
     data->loadStep = 0;
+#ifndef SIMULATOR
     clock_gettime(CLOCK_REALTIME, &(data->timeMix));
+#else
+    myGetTime(&(data->timeMix));
+#endif
 	data->distance = -1000;
 
     // iniciar resto var.
@@ -847,8 +871,12 @@ int initDisplay(struct control_data_backup_t *data)
     data->stepInc = 0;
     data->run = 0;
     data->plain_up_down = 5;   //plain
-    clock_gettime(CLOCK_REALTIME, &(data->initTime));
 
+#ifndef SIMULATOR
+    clock_gettime(CLOCK_REALTIME, &(data->initTime));
+#else
+    myGetTime(&(data->initTime));
+#endif
 	// inciar tramos
 	iniciarTramos(data);
 
@@ -870,19 +898,20 @@ int initDisplay(struct control_data_backup_t *data)
 void * displayThread(void *arg)
 {
 	struct control_data_backup_t data;
-    struct sigevent event;
-    timer_t timer_id;
-	struct timespec periodTime;
-    struct itimerspec timerdata;
+	int error;
 	int sig_num, received_sig;
     sigset_t set;
-	int error;
-
 	// get signal to use
 	sig_num = (int) arg;
 	if ((sig_num < SIGRTMIN) || (sig_num > SIGRTMAX)) {
 		sig_num = SIGRTMAX;
 	}
+
+#ifndef SIMULATOR
+    struct sigevent event;
+    timer_t timer_id;
+	struct timespec periodTime;
+    struct itimerspec timerdata;
 
 	// set periodTime time
 	periodTime.tv_sec=0;
@@ -898,11 +927,13 @@ void * displayThread(void *arg)
     timerdata.it_value = periodTime;
     timer_settime (timer_id, 0, &timerdata, NULL);
 
+#else
+    loopTimer();
+
+#endif
 	// init signal set to choose the signal to wait for
     sigemptyset (&set);
     sigaddset (&set, sig_num);
-
-
 	// init data for display
 	initDisplay (&data);
 
@@ -910,15 +941,16 @@ void * displayThread(void *arg)
 
 		// draw screen
 		drawScreen(&data, &gCmdData);
-
 		// wait until next period
 		sigwait(&set, &received_sig);
-
 		//if there have been missed periods
+#ifndef SIMULATOR
 		if (0 != timer_getoverrun(timer_id)) {
 			error = sig_num;
 			//printf("Error: timer overflow\n");
 		}
+#endif
+
 	}
 	//return (NULL);
 }
@@ -929,7 +961,11 @@ int initShared (struct comand_data_t *cmd)
     cmd->gas=0;
     cmd->brake=0;
     cmd->mixer=0;
+#ifndef SIMULATOR
     clock_gettime(CLOCK_REALTIME, &(cmd->timeMix));
+#else
+    myGetTime(&(cmd->timeMix));
+#endif
     cmd->light=0;
     cmd->isDark=0;
     cmd->distance=-1000;
@@ -947,17 +983,16 @@ int initShared (struct comand_data_t *cmd)
  *  Parameters: signalRT = numero de se–al
 						   entre SIGRTMIN y SIGRTMIN
  *********************************************************/
-int displayInit(int signalRT)
+extern pthread_t display_Thread;
+void displayInit(int signalRT)
 {
-	pthread_t thread_simul;
 
     // INICIAR var. compartida
     initShared(&(gCmdData));
 
     /* Create first thread */
-    pthread_create (&thread_simul, NULL, displayThread, (void *)signalRT);
+    pthread_create (&display_Thread, NULL, displayThread, (void *)signalRT);
 
-    return (0);
 }
 
 /**********************************************************
@@ -976,8 +1011,11 @@ int displaySlope(int slope)
     timeWait.tv_nsec = TIME_DISPLAY_NSEC;
 
     // obtener tiempo inicial
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeInit);
-
+#else
+	myGetTime(&timeInit);
+#endif
     // bloquear cerrojo
     pthread_mutex_lock (&(gCmdData.cerrojo));
     // establecer la pendiente
@@ -990,12 +1028,19 @@ int displaySlope(int slope)
 	}
     // desbloquear cerrojo
     pthread_mutex_unlock (&(gCmdData.cerrojo));
-
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeEnd);
+#else
+	myGetTime(&timeEnd);
+#endif
 	diffTime(timeEnd, timeInit, &timeDiff);
 	diffTime(timeWait, timeDiff, &timeDiff);
 
+#ifndef SIMULATOR
     nanosleep (&timeDiff,NULL);
+#else
+    mySleep(timeDiff);
+#endif
 
     return (0);
 }
@@ -1013,8 +1058,11 @@ int displaySpeed(double speed)
     timeWait.tv_nsec = TIME_DISPLAY_NSEC;
 
     // obtener tiempo inicial
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeInit);
-
+#else
+	myGetTime(&timeInit);
+#endif
     // bloquear cerrojo
     pthread_mutex_lock (&(gCmdData.cerrojo));
     // establecer la velocidad
@@ -1022,11 +1070,19 @@ int displaySpeed(double speed)
     // desbloquear cerrojo
     pthread_mutex_unlock (&(gCmdData.cerrojo));
 
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeEnd);
+#else
+	myGetTime(&timeEnd);
+#endif
 	diffTime(timeEnd, timeInit, &timeDiff);
 	diffTime(timeWait, timeDiff, &timeDiff);
 
+#ifndef SIMULATOR
     nanosleep (&timeDiff,NULL);
+#else
+    mySleep(timeDiff);
+#endif
 
     return (0);
 }
@@ -1044,8 +1100,11 @@ int displayGas(int gas)
     timeWait.tv_nsec = TIME_DISPLAY_NSEC;
 
     // obtener tiempo inicial
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeInit);
-
+#else
+	myGetTime(&timeInit);
+#endif
     // bloquear cerrojo
     pthread_mutex_lock (&(gCmdData.cerrojo));
     // establecer el acelerador
@@ -1053,11 +1112,19 @@ int displayGas(int gas)
     // desbloquear cerrojo
     pthread_mutex_unlock (&(gCmdData.cerrojo));
 
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeEnd);
+#else
+	myGetTime(&timeEnd);
+#endif
 	diffTime(timeEnd, timeInit, &timeDiff);
 	diffTime(timeWait, timeDiff, &timeDiff);
 
+#ifndef SIMULATOR
     nanosleep (&timeDiff,NULL);
+#else
+    mySleep(timeDiff);
+#endif
 
     return (0);
 }
@@ -1075,8 +1142,11 @@ int displayBrake(int brake)
     timeWait.tv_nsec = TIME_DISPLAY_NSEC;
 
     // obtener tiempo inicial
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeInit);
-
+#else
+	myGetTime(&timeInit);
+#endif
     // bloquear cerrojo
     pthread_mutex_lock (&(gCmdData.cerrojo));
     // establecer el freno
@@ -1084,11 +1154,19 @@ int displayBrake(int brake)
     // desbloquear cerrojo
     pthread_mutex_unlock (&(gCmdData.cerrojo));
 
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeEnd);
+#else
+	myGetTime(&timeEnd);
+#endif
 	diffTime(timeEnd, timeInit, &timeDiff);
 	diffTime(timeWait, timeDiff, &timeDiff);
 
+#ifndef SIMULATOR
     nanosleep (&timeDiff,NULL);
+#else
+    mySleep(timeDiff);
+#endif
 
     return (0);
 }
@@ -1106,25 +1184,40 @@ int displayMix(int mixer)
     timeWait.tv_nsec = TIME_DISPLAY_NSEC;
 
     // obtener tiempo inicial
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeInit);
-
+#else
+	myGetTime(&timeInit);
+#endif
     // bloquear cerrojo
     pthread_mutex_lock (&(gCmdData.cerrojo));
 	// si cambia el mixer
 	if (gCmdData.mixer != mixer) {
 		// actualizar el reloj
+#ifndef SIMULATOR
 		clock_gettime(CLOCK_REALTIME, &(gCmdData.timeMix));
+#else
+		myGetTime(&(gCmdData.timeMix));
+#endif
 	}
     // establecer el mixer
     gCmdData.mixer = mixer;
     // desbloquear cerrojo
     pthread_mutex_unlock (&(gCmdData.cerrojo));
 
+#ifndef SIMULATOR
 	clock_gettime(CLOCK_REALTIME, &timeEnd);
+#else
+	myGetTime(&timeEnd);
+#endif
 	diffTime(timeEnd, timeInit, &timeDiff);
 	diffTime(timeWait, timeDiff, &timeDiff);
 
+#ifndef SIMULATOR
     nanosleep (&timeDiff,NULL);
+#else
+    mySleep(timeDiff);
+#endif
 
     return (0);
 }
@@ -1190,12 +1283,17 @@ int simul_mod(struct simulation_t *simulData)
 
 	// calcular tiempo pasado
 	if (old_time == 0.0) {
-		old_time = getClock();;
+		old_time = getClock();
 	}
 	// esperar 100 ms para que pase algo de tiempo
     timeWait.tv_sec = 0;
     timeWait.tv_nsec = 100000000;
+
+#ifndef SIMULATOR
     nanosleep (&timeWait,NULL);
+#else
+    mySleep(timeWait);
+#endif
 
 	// calcular el tiempo
 	time = getClock();

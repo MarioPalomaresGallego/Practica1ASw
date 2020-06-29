@@ -1,1 +1,3 @@
-displayA.o: ../displayA.c
+displayA.o: ../displayA.c ../myTimer.h
+
+../myTimer.h:
